@@ -6,12 +6,11 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
-#define NUM_SENSORS 1 // Number of moisture sensors currently hooked up
+#define NUM_SENSORS 6 // Number of moisture sensors currently hooked up
+#define DELAY_MS 4000 // Number of ms delay between reading different sensors
 
 #define DEBUG true
 char debugBuffer[100];
-
-const char *pctSign = " %";
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
@@ -19,14 +18,19 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 struct MoistureSensor {
   char plantName[20];
   bool shouldDisplay;
-  int pin;
+  int pinNumber;
   int airValue;
   int waterValue;
 };
 
 // define the moisture sensors here
 MoistureSensor sensors[NUM_SENSORS] = {
-  {"Pothos", true, 4, 2640, 1140}
+  {"Sensor1", true, 36, 2560, 1140},
+  {"Sensor2", true, 39, 3330, 1700},
+  {"Sensor3", true, 34, 3330, 1700},
+  {"Sensor4", true, 35, 3200, 1630},
+  {"Sensor5", true, 32, 3250, 1650},
+  {"Sensor6", true, 33, 3220, 1640}
 };
 int moisturePct[NUM_SENSORS];
 
@@ -35,11 +39,11 @@ int moisturePct[NUM_SENSORS];
    reads the value on the sensor and returns the calibrated percentage
 */
 int readMoisturePercentage(MoistureSensor sensor) {
-  int moistureVal = analogRead(sensor.pin);
+  int moistureVal = analogRead(sensor.pinNumber);
   int moisturePct = map(moistureVal, sensor.airValue, sensor.waterValue, 0, 100);
   if (DEBUG) {
     sprintf(debugBuffer,  "%s on pin(%d): raw=%d pct=%d",
-            sensor.plantName, sensor.pin, moistureVal, moisturePct);
+            sensor.plantName, sensor.pinNumber, moistureVal, moisturePct);
     Serial.println(debugBuffer);
   }
   return moisturePct;
@@ -49,7 +53,8 @@ int readMoisturePercentage(MoistureSensor sensor) {
    Displays the value of the read sensor on the OLED screen
 */
 void displayOnScreen(int moisturePct, char plantName[]) {
-  char oledPctBuffer[5];
+  char oledPctBuffer[6];
+  const char *pctSign = " %";
   int displayPct = -1;
   
   if (moisturePct <= 0) {
@@ -62,16 +67,16 @@ void displayOnScreen(int moisturePct, char plantName[]) {
   sprintf(oledPctBuffer, "%d", displayPct);
   strcat(oledPctBuffer, pctSign);
 
-  display.setCursor(45, 0); // oled display
+  display.setCursor(10, 0); // oled display
   display.setTextSize(2);
   display.setTextColor(WHITE);
   display.println(plantName);
-  display.setCursor(20, 15);
+  display.setCursor(10, 18);
   display.setTextSize(2);
   display.setTextColor(WHITE);
   display.println("Moisture");
 
-  display.setCursor(30, 40); // oled display
+  display.setCursor(10, 40); // oled display
   display.setTextSize(3);
   display.setTextColor(WHITE);
   display.println(oledPctBuffer);
@@ -88,16 +93,14 @@ void setup() {
 
 void loop()
 {
-  // read value from pins
-  int numSensors = sizeof(sensors) / sizeof(sensors[0]);
-
-  for (int idx=0; idx < numSensors; idx++) {
+  // read value from pins one by one
+  for (int idx=0; idx < NUM_SENSORS; idx++) {
     moisturePct[idx] = readMoisturePercentage(sensors[idx]);
     if (sensors[idx].shouldDisplay) {
       displayOnScreen(moisturePct[idx], sensors[idx].plantName);
     }
+
+    delay(DELAY_MS);
+    display.clearDisplay();
   }
-  
-  delay(250);
-  display.clearDisplay();
 }
